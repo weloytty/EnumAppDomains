@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2027
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClrUtils", "ClrUtility\ClrUtils.csproj", "{0D4BC952-A03B-4759-8055-DA06CD2FB669}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnumAppDomains", "EnumAppDomains\EnumAppDomains.csproj", "{95E38DD7-86D2-4468-8194-79FB441050F2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0D4BC952-A03B-4759-8055-DA06CD2FB669}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D4BC952-A03B-4759-8055-DA06CD2FB669}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D4BC952-A03B-4759-8055-DA06CD2FB669}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D4BC952-A03B-4759-8055-DA06CD2FB669}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95E38DD7-86D2-4468-8194-79FB441050F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95E38DD7-86D2-4468-8194-79FB441050F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95E38DD7-86D2-4468-8194-79FB441050F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95E38DD7-86D2-4468-8194-79FB441050F2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C8B23CAB-9245-45C2-A3D4-C4461A467996}
+	EndGlobalSection
+EndGlobal
