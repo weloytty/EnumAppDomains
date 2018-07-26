@@ -17,7 +17,7 @@ process{
                     New-Item -Path $(Join-Path $serverPath "utils")
                 }
                 
-                & robocopy.exe . $(Join-Path "$serverPath" "utils") *.* /xf Copy-EnumAppDomainsToTroubleshooting.ps1
+                & robocopy.exe .\bin\Debug $(Join-Path "$serverPath" "utils") *.* /xf Copy-EnumAppDomainsToTroubleshooting.ps1
 
                 remove-item $(Join-Path "$serverPath" "utils\Copy-EnumAppDomainsToTroubleshooting.ps1") -ErrorAction SilentlyContinue
             }
