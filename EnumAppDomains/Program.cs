@@ -14,19 +14,19 @@ namespace EnumAppDomains
         {
 
 
-            var parser = new Parser(with =>
-            {
-                with.EnableDashDash = true;
-                with.HelpWriter = Console.Out;
-            });
+            //var parser = new Parser(with =>
+            //{
+            //    with.EnableDashDash = true;
+            //    with.HelpWriter = Console.Out;
+            //});
 
-            if (args.Length == 0)
-            {
-                args = new string[] {"--help"};
-            }
+            //if (args.Length == 0)
+            //{
+            //    args = new string[] {"--help"};
+            //}
 
             var commandLineOptions =
-                parser.ParseArguments<CommandLineOptions>(args).WithParsed(opts => RunApplication(opts)).WithNotParsed(erropts => ShowHelp(erropts));
+                Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(opts => RunApplication(opts)).WithNotParsed(erropts => ShowHelp(erropts));
 
         }
 
@@ -73,26 +73,31 @@ namespace EnumAppDomains
                                     if (printMe) Console.WriteLine($"{currMod.AssemblyName}");
                                 }
 
-                                Console.WriteLine("");
-                                Console.WriteLine("Threads:");
-
-                                foreach (ClrThread clrt in threadList)
+                                if (!opts.HideThreads)
                                 {
-                                    string threadInfo = string.Format("  Thread: {0,3:G} NT: {1,12:X8} GC: {2} {3}", clrt.ManagedThreadId,
-                                        clrt.OSThreadId, clrt.IsGC, clrt.IsAlive ? "    " : "DEAD");
+                                    Console.WriteLine("");
+                                    Console.WriteLine("Threads:");
 
-                                    Console.WriteLine(threadInfo);
-                                    int frameNum = 0;
-                                    foreach (ClrStackFrame frame in clrt.StackTrace)
+                                    foreach (ClrThread clrt in threadList)
                                     {
+                                        string threadInfo = string.Format("  Thread: {0,3:G} NT: {1,12:X8} GC: {2} {3}",
+                                            clrt.ManagedThreadId,
+                                            clrt.OSThreadId, clrt.IsGC, clrt.IsAlive ? "    " : "DEAD");
 
-                                        string frameInfo = String.Format("    Frame: {0,2:G} IP: {1,12:X} {2}", frameNum, frame.InstructionPointer,
-                                            frame.DisplayString);
-                                        Console.WriteLine(frameInfo);
-                                        frameNum++;
+                                        Console.WriteLine(threadInfo);
+                                        int frameNum = 0;
+                                        foreach (ClrStackFrame frame in clrt.StackTrace)
+                                        {
+
+                                            string frameInfo = String.Format("    Frame: {0,2:G} IP: {1,12:X} {2}",
+                                                frameNum, frame.InstructionPointer,
+                                                frame.DisplayString);
+                                            Console.WriteLine(frameInfo);
+                                            frameNum++;
+
+                                        }
 
                                     }
-
                                 }
 
                                 //Console.WriteLine("");
@@ -263,7 +268,7 @@ namespace EnumAppDomains
         {
             Console.WriteLine("EnumAppDomains.exe:  Shows what appdomains are running in a process");
             Console.WriteLine("	(c) 2018 Bill Loytty");
-            Console.WriteLine("	USAGE:  EnumAppDomains --pid xxxx [-gac] [-heap] [-recurse]");
+            Console.WriteLine("	USAGE:  EnumAppDomains --pid xxxx [-gac] [-hidethreads] [-heap] [-recurse]");
             Console.WriteLine(" Shows all appdomains running in process xxxx");
 
             foreach (var error in opts)
@@ -275,19 +280,22 @@ namespace EnumAppDomains
         class CommandLineOptions
         {
             //[Option("pid", HelpText = "Process ID to enumerate")]
-            [Option('p', "pid", Default = false, Required = true, HelpText = "Process Id to enumerate")]
+            [Option('p', "pid",  Required = true, HelpText = "Process Id to enumerate")]
             public int PID { get; set; }
 
 
-            [Option('g', "gac", Default = false,
+            [Option('g', "gac", 
                 HelpText = "Display GACd assemblies.")]
             public bool GAC { get; set; }
 
-            [Option('h', "heap", Default = false, HelpText = "Display Heap Information.")]
+            [Option('h', "heap",  HelpText = "Display Heap Information.")]
             public bool Heap { get; set; }
 
-            [Option('r', "recurse", Default = false, HelpText = "used with -heap, recurses each object.")]
+            [Option('r', "recurse",  HelpText = "used with -heap, recurses each object.")]
             public bool Recurse { get; set; }
+
+            [Option('t', "hidethreads",  HelpText = "Don't show threads for each appdomain")]
+            public bool HideThreads { get; set; }
 
 
         }

@@ -2,14 +2,15 @@
 param([string[]]$ProcessName,
     [int[]]$ProcessId,
     [switch]$ShowGac,
-    [switch]$ShowHeap)
+    [switch]$ShowHeap,
+    [switch]$HideThreads)
 
 begin {
     Set-StrictMode -Version Latest
-    Write-Verbose "Process Id  : '$processId' (null: $($processId -eq $null)"
-    Write-Verbose "Process Name: '$processName' (Null: $($processName -eq $null))"
-    if ($ProcessId -ne $null -and $ProcessName -ne $null) {throw "Can't specify process name and id. Pick one or the other"}
-    if ($ProcessId -eq $null -and $ProcessName -eq $null) {throw "Choose process name or process id."}
+    Write-Verbose "Process Id  : '$processId' (null: $($null -eq $processId)"
+    Write-Verbose "Process Name: '$processName' (Null: $($null -eq $processName))"
+    if ($null -ne $ProcessId -and $null -ne $ProcessName) {throw "Can't specify process name and id. Pick one or the other"}
+    if ($null -eq $ProcessId -and $null -eq $ProcessName) {throw "Choose process name or process id."}
     $eadArgs = @()
     $eadCommand = ""
     if (Test-Path -Path ".\EnumAppDomains.exe" -PathType Leaf) {$eadCommand = $(Get-Item ".\EnumAppDomains.exe").FullName}
@@ -20,10 +21,13 @@ begin {
     }
 
     if ($ShowGac) {
-        $eadArgs += '-gac'
+        $eadArgs += '-g'
     }
     if ($ShowHeap) {
-        $eadArgs += '-heap'
+        $eadArgs += '-h'
+    }
+    if ($HideThreads) {
+        $eadArgs += '-t'
     }
 
 
