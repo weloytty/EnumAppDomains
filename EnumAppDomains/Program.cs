@@ -1,217 +1,160 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using ClrUtils;
+﻿using ClrUtils;
 using CommandLine;
 using Microsoft.Diagnostics.Runtime;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 
 namespace EnumAppDomains
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
 
 
-            //var parser = new Parser(with =>
-            //{
-            //    with.EnableDashDash = true;
-            //    with.HelpWriter = Console.Out;
-            //});
 
-            //if (args.Length == 0)
-            //{
-            //    args = new string[] {"--help"};
-            //}
-
-            var commandLineOptions =
-                Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(opts => RunApplication(opts)).WithNotParsed(erropts => ShowHelp(erropts));
+            ParserResult<CommandLineOptions> commandLineOptions =
+                Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(options => RunApplication(options)).WithNotParsed(erropts => ShowHelp(erropts));
 
         }
 
-        static void RunApplication(CommandLineOptions opts)
+        private static void RunApplication(CommandLineOptions opts)
         {
-
-
-            if (opts.PID != 0)
+            if (opts.PID == 0) return;
+            try
             {
-                try
+                bool currProc64 = CLRUtility.Is64BitProcess();
+                bool remoteProc64 = CLRUtility.Is64BitProcess(opts.PID);
+
+                if (currProc64 != remoteProc64)
                 {
-                    bool currProc64 = CLRUtility.Is64BitProcess();
-                    bool remoteProc64 = CLRUtility.Is64BitProcess(opts.PID);
+                    Console.WriteLine("Process Bitness must match. This process is {0}, {1} is {2}", currProc64 ? "64-bit" : "32-bit",
+                        opts.PID, remoteProc64 ? "64-bit" : "32-bit");
+                    return;
 
-                    if (currProc64 != remoteProc64)
+                }
+
+
+
+                using (DataTarget d = DataTarget.AttachToProcess(opts.PID, 5000, AttachFlag.NonInvasive))
+                {
+                    Console.WriteLine($"Dumping all CLRversions for process {opts.PID}");
+                    foreach (ClrInfo currInfo in d.ClrVersions)
                     {
-                        Console.WriteLine("Process Bitness must match. This process is {0}, {1} is {2}", currProc64 ? "64-bit" : "32-bit",
-                            opts.PID, remoteProc64 ? "64-bit" : "32-bit");
-                        return;
 
-                    }
-
-
-
-                    using (DataTarget d = DataTarget.AttachToProcess(opts.PID, 5000, AttachFlag.NonInvasive))
-                    {
-                        Console.WriteLine($"Dumping all CLRversions for process {opts.PID}");
-                        foreach (ClrInfo currInfo in d.ClrVersions)
+                        ClrRuntime runtime = currInfo.CreateRuntime();
+                        Console.WriteLine($"CLR: {currInfo.Version} GC: {(runtime.ServerGC ? "Server      " : "Workstation")} HeapSize: 0:{runtime.Heap.GetSizeByGen(0),12} 1:{runtime.Heap.GetSizeByGen(1),12} L:{runtime.Heap.GetSizeByGen(2),12}", "");
+                        foreach (ClrAppDomain domain in runtime.AppDomains)
                         {
 
-                            ClrRuntime runtime = currInfo.CreateRuntime();
-                            Console.WriteLine($"CLR: {currInfo.Version} GC: {(runtime.ServerGC ? "Server      " : "Workstation")} HeapSize: 0:{runtime.Heap.GetSizeByGen(0),12} 1:{runtime.Heap.GetSizeByGen(1),12} L:{runtime.Heap.GetSizeByGen(2),12}", "");
-                            foreach (ClrAppDomain domain in runtime.AppDomains)
+                            IEnumerable<ClrThread> threadList = runtime.Threads.Where(x => (x.AppDomain == domain.Address));
+                            string domainInfo = $"App Domain: {domain.Name.PadRight(40)} ID: {domain.Id} Threads: {threadList.Count()} Address: {domain.Address,12:X8}";
+                            Console.WriteLine(domainInfo);
+
+                            Console.WriteLine($"Modules: {domain.Modules.Count.ToString("D3")} (showing GAC? {opts.GAC})");
+                            foreach (ClrModule currMod in domain.Modules)
                             {
+                                bool printMe = (!string.IsNullOrEmpty(currMod.AssemblyName)) && (!currMod.AssemblyName.Contains("\\GAC_") | opts.GAC);
+                                if (printMe) Console.WriteLine($"{currMod.AssemblyName}");
+                            }
 
-                                IEnumerable<ClrThread> threadList = runtime.Threads.Where(x => (x.AppDomain == domain.Address));
-                                string domainInfo = $"App Domain: {domain.Name.PadRight(40)} ID: {domain.Id} Threads: {threadList.Count()} Address: {domain.Address,12:X8}";
-                                Console.WriteLine(domainInfo);
+                            if (!opts.HideThreads)
+                            {
+                                Console.WriteLine("");
+                                Console.WriteLine("Threads:");
 
-                                Console.WriteLine($"Modules: {domain.Modules.Count.ToString("D3")} (showing GAC? {opts.GAC})");
-                                foreach (ClrModule currMod in domain.Modules)
+                                foreach (ClrThread clrt in threadList)
                                 {
-                                    bool printMe = (!String.IsNullOrEmpty(currMod.AssemblyName)) && (!currMod.AssemblyName.Contains("\\GAC_") | opts.GAC);
-                                    if (printMe) Console.WriteLine($"{currMod.AssemblyName}");
-                                }
+                                    string threadInfo = string.Format("  Thread: {0,3:G} NT: {1,12:X8} GC: {2} {3}",
+                                        clrt.ManagedThreadId,
+                                        clrt.OSThreadId, clrt.IsGC, clrt.IsAlive ? "    " : "DEAD");
 
-                                if (!opts.HideThreads)
-                                {
-                                    Console.WriteLine("");
-                                    Console.WriteLine("Threads:");
-
-                                    foreach (ClrThread clrt in threadList)
+                                    Console.WriteLine(threadInfo);
+                                    int frameNum = 0;
+                                    if (opts.ShowFrames)
                                     {
-                                        string threadInfo = string.Format("  Thread: {0,3:G} NT: {1,12:X8} GC: {2} {3}",
-                                            clrt.ManagedThreadId,
-                                            clrt.OSThreadId, clrt.IsGC, clrt.IsAlive ? "    " : "DEAD");
-
-                                        Console.WriteLine(threadInfo);
-                                        int frameNum = 0;
                                         foreach (ClrStackFrame frame in clrt.StackTrace)
                                         {
 
-                                            string frameInfo = String.Format("    Frame: {0,2:G} IP: {1,12:X} {2}",
-                                                frameNum, frame.InstructionPointer,
-                                                frame.DisplayString);
+                                            string frameInfo =
+                                                $"    Frame: {frameNum,2:G} IP: {frame.InstructionPointer,12:X} {frame.DisplayString}";
                                             Console.WriteLine(frameInfo);
                                             frameNum++;
 
                                         }
-
                                     }
+
+                                }
+                            }
+
+
+                            if (opts.Heap)
+                            {
+
+                                Console.WriteLine("");
+                                Console.WriteLine("Heap Segments:");
+                                Console.WriteLine("{0,12} {1,12} {2,12} {3,12} {4,4} {5}", "Start", "End", "Committed", "Reserved", "Proc", "Type");
+                                foreach (ClrSegment thisSeg in runtime.Heap.Segments)
+                                {
+                                    string type;
+                                    if (thisSeg.IsEphemeral)
+                                        type = "Ephemeral";
+                                    else if (thisSeg.IsLarge)
+                                        type = "Large";
+                                    else
+                                        type = "Gen2";
+
+                                    Console.WriteLine("{0,12:X} {1,12:X} {2,12:X} {3,12:X} {4,4} {5}", thisSeg.Start, thisSeg.End, thisSeg.CommittedEnd, thisSeg.ReservedEnd, thisSeg.ProcessorAffinity, type);
                                 }
 
-                                //Console.WriteLine("");
-                                //Console.WriteLine($"Memory By Segment ({domain.Name})");
-
-
-
-                                //foreach (var region in (from r in runtime.EnumerateMemoryRegions()
-                                //	where r.Type != ClrMemoryRegionType.ReservedGCSegment
-                                //		  && (r.AppDomain == domain)
-                                //	group r by r.Type into g
-                                //	let total = g.Sum(p => (uint)p.Size)
-                                //	orderby total descending
-                                //	select new
-                                //	{
-                                //		TotalSize = total,
-                                //		Count = g.Count(),
-                                //		Type = g.Key
-                                //	}))
-                                //{
-                                //	//Console.WriteLine("{0,6:n0} {1,12:n0} {2}", region.Count, region.TotalSize, region.Type.ToString());
-                                //	Console.WriteLine("{0,6:n0} {1,12:n0} {2}", region.Count, region.TotalSize, region.Type.ToString());
-                                //}
-
-
-
-
-                                if (opts.Heap)
+                                if (opts.Recurse)
                                 {
-
-                                    Console.WriteLine("");
-                                    Console.WriteLine("Heap Segments:");
-                                    Console.WriteLine("{0,12} {1,12} {2,12} {3,12} {4,4} {5}", "Start", "End", "Committed", "Reserved", "Proc", "Type");
-                                    foreach (ClrSegment thisSeg in runtime.Heap.Segments)
+                                    if (!runtime.Heap.CanWalkHeap)
                                     {
-                                        string type;
-                                        if (thisSeg.IsEphemeral)
-                                            type = "Ephemeral";
-                                        else if (thisSeg.IsLarge)
-                                            type = "Large";
-                                        else
-                                            type = "Gen2";
+                                        Console.WriteLine("Can't walk heap!");
 
-                                        Console.WriteLine("{0,12:X} {1,12:X} {2,12:X} {3,12:X} {4,4} {5}", thisSeg.Start, thisSeg.End, thisSeg.CommittedEnd, thisSeg.ReservedEnd, thisSeg.ProcessorAffinity, type);
                                     }
-
-                                    if (opts.Recurse)
+                                    else
                                     {
-                                        if (!runtime.Heap.CanWalkHeap)
+                                        Console.WriteLine("Dumping LOH");
+                                        foreach (ClrSegment thisSeg in runtime.Heap.Segments.Where(x => x.IsLarge))
                                         {
-                                            Console.WriteLine("Can't walk heap!");
-
-                                        }
-                                        else
-                                        {
-                                            Console.WriteLine("Dumping LOH");
-                                            foreach (ClrSegment thisSeg in runtime.Heap.Segments.Where(x => x.IsLarge))
+                                            for (ulong objId = thisSeg.FirstObject; objId != 0; objId = thisSeg.NextObject(objId))
                                             {
-                                                for (ulong objId = thisSeg.FirstObject; objId != 0; objId = thisSeg.NextObject(objId))
-                                                {
-                                                    ClrType thisType = runtime.Heap.GetObjectType(objId);
-                                                    ulong thisSize = thisType.GetSize(objId);
-                                                    Console.WriteLine("{0,12:X} {1,8:n0} {2,1:n0} {3}", objId, thisSize, thisSeg.GetGeneration(objId), thisType.Name);
-                                                }
+                                                ClrType thisType = runtime.Heap.GetObjectType(objId);
+                                                ulong thisSize = thisType.GetSize(objId);
+                                                Console.WriteLine("{0,12:X} {1,8:n0} {2,1:n0} {3}", objId, thisSize, thisSeg.GetGeneration(objId), thisType.Name);
                                             }
                                         }
                                     }
-
-
-                                    //foreach (ClrObject thisHeapObj in runtime.Heap.EnumerateObjects())
-                                    //{
-
-                                    //	string heapInfo = String.Format("{0}:{1}:{2}", thisHeapObj.HexAddress, thisHeapObj.Size, thisHeapObj.Type.Name);
-
-                                    //	Console.WriteLine(heapInfo);
-                                    //	if (opts.Recurse)
-                                    //	{
-                                    //		ulong childSize = 0;
-                                    //		uint childCount = 0;
-
-                                    //		ObjSize(runtime.Heap, thisHeapObj.Address, out childCount, out childSize);
-
-                                    //		heapInfo = String.Format("{0}:{1}:{2} (child size:{3} count: {4})", thisHeapObj.HexAddress, thisHeapObj.Type.Name, thisHeapObj.Size, childCount, childSize);
-                                    //	}
-
-                                    //	Console.WriteLine(heapInfo);
-
-
-                                    //}
                                 }
 
-                                Console.WriteLine("");
-
                             }
+
+                            Console.WriteLine("");
+
                         }
                     }
+                }
 
-                }
-                catch (ArgumentException ae)
-                {
-                    Console.WriteLine(ae.Message);
-                }
-                catch (ApplicationException _applicationException)
-                {
-                    Console.WriteLine(_applicationException.Message);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.GetType());
-                    Console.WriteLine(ex.StackTrace);
-                    Console.WriteLine("Cannot get the process. "
-                                      + " Make sure the process exists and it's a managed process and if it's running as admin, you need to be too.");
-                }
+            }
+            catch (ArgumentException ae)
+            {
+                Console.WriteLine(ae.Message);
+            }
+            catch (ApplicationException aex)
+            {
+                Console.WriteLine(aex.Message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.GetType());
+                Console.WriteLine(ex.StackTrace);
+                Console.WriteLine("Cannot get the process. "
+                                  + " Make sure the process exists and it's a managed process and if it's running as admin, you need to be too.");
             }
         }
 
@@ -244,7 +187,7 @@ namespace EnumAppDomains
                 ClrType type = thisHeap.GetObjectType(objId);
                 if (type == null)
                 {
-                    string outputString = String.Format("{0} corrupt!", objId);
+                    string outputString = string.Format("{0} corrupt!", objId);
                     Console.WriteLine(outputString);
                     continue;
                 }
@@ -263,39 +206,41 @@ namespace EnumAppDomains
             }
         }
 
-
-        static void ShowHelp(IEnumerable<CommandLine.Error> opts)
+        private static void ShowHelp(IEnumerable<CommandLine.Error> opts)
         {
-            Console.WriteLine("EnumAppDomains.exe:  Shows what appdomains are running in a process");
-            Console.WriteLine("	(c) 2018 Bill Loytty");
-            Console.WriteLine("	USAGE:  EnumAppDomains --pid xxxx [-gac] [-hidethreads] [-heap] [-recurse]");
-            Console.WriteLine(" Shows all appdomains running in process xxxx");
+            Console.WriteLine("EnumAppDomains.exe");
+            Console.WriteLine("(c) 2018 Bill Loytty");
+            Console.WriteLine("USAGE:  EnumAppDomains --pid xxxx [-gac] [-hidethreads] [-heap] [-recurse]");
+            Console.WriteLine("Shows all appdomains running in process xxxx");
 
-            foreach (var error in opts)
+            foreach (Error error in opts)
             {
                 Console.WriteLine("Error : {0}", error.ToString());
             }
         }
 
-        class CommandLineOptions
+        private class CommandLineOptions
         {
-            //[Option("pid", HelpText = "Process ID to enumerate")]
-            [Option('p', "pid",  Required = true, HelpText = "Process Id to enumerate")]
+            
+            [Option('p', "pid", Required = true, HelpText = "Process Id to enumerate")]
             public int PID { get; set; }
 
 
-            [Option('g', "gac", 
-                HelpText = "Display GACd assemblies.")]
+            [Option('g', "gac", HelpText = "Display GACd assemblies.")]
             public bool GAC { get; set; }
 
-            [Option('h', "heap",  HelpText = "Display Heap Information.")]
+            [Option('h', "heap", HelpText = "Display Heap Information.")]
             public bool Heap { get; set; }
 
-            [Option('r', "recurse",  HelpText = "used with -heap, recurses each object.")]
+            [Option('r', "recurse", HelpText = "used with -heap, recurses each object.")]
             public bool Recurse { get; set; }
 
-            [Option('t', "hidethreads",  HelpText = "Don't show threads for each appdomain")]
+            [Option('t', "hidethreads", HelpText = "Don't show threads for each appdomain")]
             public bool HideThreads { get; set; }
+
+
+            [Option('f', "showframes", HelpText = "Show threads stacks for each appdomain")]
+            public bool ShowFrames { get; set; }
 
 
         }
