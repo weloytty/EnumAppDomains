@@ -76,6 +76,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>"C:\Program Files (x86)\Windows Kits\10\bin\x64\mt.exe" -manifest "$(ProjectDir)app.manifest" -updateresource:"$(TargetDir)$(TargetName).exe;#1"</PostBuildEvent>
+    <PostBuildEvent>powershell -noprofile -nologo $(ProjectDir)\Post-BuildStep.ps1</PostBuildEvent>
   </PropertyGroup>
 </Project>

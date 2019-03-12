@@ -9,7 +9,7 @@ if([intptr]::Size -eq 4){$procArch = "x86"}
 Gci Env:\
 
 
-$mtPath = $(Join-Path "$($env:windowssdkbinpath)" "$procArch\mt.exe")
+$mtPath = $(Join-Path "$($env:WindowsSdkVerBinPath)" "$procArch\mt.exe")
 
 
 Write-Output "Running "$mtPath" -manifest "$InputManifest" -updateresource:"$UpdateREsource""
