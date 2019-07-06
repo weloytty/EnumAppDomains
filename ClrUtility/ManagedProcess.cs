@@ -94,7 +94,7 @@ namespace ClrUtils
 			}
 		}
 
-		private System.Diagnostics.Process _diagnosticsProcess = null;
+		private readonly System.Diagnostics.Process _diagnosticsProcess = null;
 
 		/// <summary>
 		/// Get System.Diagnostics.Process using ProcessID.
@@ -177,12 +177,8 @@ namespace ClrUtils
 
 		private ManagedProcess(System.Diagnostics.Process diagnosticsProcess)
 		{
-			if (diagnosticsProcess == null)
-			{
-				throw new ArgumentNullException("diagnosticsProcess",
+            this._diagnosticsProcess = diagnosticsProcess ?? throw new ArgumentNullException("diagnosticsProcess",
 					"The System.Diagnostics.Process could not be null. ");
-			}
-			this._diagnosticsProcess = diagnosticsProcess;
 			if (this.LoadedRuntimes == null || this.LoadedRuntimes.Count() == 0)
 			{
 				throw new ArgumentException("This process is not a managed process. ");
@@ -303,8 +299,7 @@ namespace ClrUtils
 				host.EnumDomains(out hEnum);
 				while (true)
 				{
-					object domain;
-					host.NextDomain(hEnum, out domain);
+                    host.NextDomain(hEnum, out var domain);
 					if (domain == null)
 					{
 						break;

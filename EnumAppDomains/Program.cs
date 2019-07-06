@@ -28,12 +28,9 @@ namespace EnumAppDomains
             if (opts.PID != 0) {
                 pids.Add( opts.PID);
             }
-            if(! String.IsNullOrEmpty(opts.ProcessName)){
-                var o = Process.GetProcessesByName(opts.ProcessName);              
-                foreach(var s in o)
-                {
-                    pids.Add(s.Id);
-                }
+            if(!string.IsNullOrEmpty(opts.ProcessName)) {
+                var o = Process.GetProcessesByName(opts.ProcessName);
+                pids.AddRange(o.Select(s => s.Id));
             }
 
             if( pids.Any()){
@@ -84,23 +81,20 @@ namespace EnumAppDomains
 
                                         foreach (ClrThread clrt in threadList)
                                         {
-                                            string threadInfo = string.Format("  Thread: {0,3:G} NT: {1,12:X8} GC: {2} {3}",
-                                                clrt.ManagedThreadId,
-                                                clrt.OSThreadId, clrt.IsGC, clrt.IsAlive ? "    " : "DEAD");
+                                            string threadInfo =
+                                                $"  Thread: {clrt.ManagedThreadId,3:G} NT: {clrt.OSThreadId,12:X8} GC: {clrt.IsGC} {(clrt.IsAlive ? "    " : "DEAD")}";
 
                                             Console.WriteLine(threadInfo);
                                             int frameNum = 0;
-                                            if (opts.ShowFrames)
+                                            if (!opts.ShowFrames) continue;
+                                            foreach (ClrStackFrame frame in clrt.StackTrace)
                                             {
-                                                foreach (ClrStackFrame frame in clrt.StackTrace)
-                                                {
 
-                                                    string frameInfo =
-                                                        $"    Frame: {frameNum,2:G} IP: {frame.InstructionPointer,12:X} {frame.DisplayString}";
-                                                    Console.WriteLine(frameInfo);
-                                                    frameNum++;
+                                                string frameInfo =
+                                                    $"    Frame: {frameNum,2:G} IP: {frame.InstructionPointer,12:X} {frame.DisplayString}";
+                                                Console.WriteLine(frameInfo);
+                                                frameNum++;
 
-                                                }
                                             }
 
                                         }
@@ -209,7 +203,7 @@ namespace EnumAppDomains
                 ClrType type = thisHeap.GetObjectType(objId);
                 if (type == null)
                 {
-                    string outputString = string.Format("{0} corrupt!", objId);
+                    string outputString = $"{objId} corrupt!";
                     Console.WriteLine(outputString);
                     continue;
                 }
@@ -267,7 +261,6 @@ namespace EnumAppDomains
 
             [Option('t', "hidethreads", HelpText = "Don't show threads for each appdomain")]
             public bool HideThreads { get; set; }
-
 
             [Option('f', "showframes", HelpText = "Show threads stacks for each appdomain")]
             public bool ShowFrames { get; set; }
